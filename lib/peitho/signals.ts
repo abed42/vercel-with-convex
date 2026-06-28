@@ -1,21 +1,20 @@
 import type { Signal } from "./types";
 
-// Fresh signals the demo "detects" live, escalating buying intent. Each one is a
-// strong, real-world trigger that the panel's lenses react to — so appending one
-// and re-pricing visibly moves the odds. Ordered to escalate.
+// Seeded "freshly-detected" signals for the live detection moment. Strong,
+// news-style buying triggers that reliably move the odds when appended + re-priced.
+// Ordered so the first detection lands the hardest (explicit in-market intent).
 export const FRESH_SIGNALS: Signal[] = [
   {
     source: "x",
     claim:
-      "VP Sales posted today: “we're ripping out our outbound stack this quarter”",
+      "VP Engineering posted today: “we've outgrown our current stack — evaluating a new platform this quarter”",
   },
   {
-    source: "orange slice",
-    claim:
-      "3 buying-committee members visited pricing and booked a demo in the last 48h",
+    source: "news",
+    claim: "raised a fresh $150M round this week, earmarked to scale the engineering org",
   },
   {
-    source: "crunchbase",
-    claim: "raised a fresh $75M round, announced this morning",
+    source: "linkedin",
+    claim: "opened 40+ new engineering roles in the last 14 days",
   },
 ];

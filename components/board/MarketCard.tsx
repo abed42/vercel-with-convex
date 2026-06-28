@@ -2,20 +2,16 @@
 
 import { motion } from "motion/react";
 import type { Deal } from "@/lib/peitho/types";
-import { ALL_MODELS } from "@/lib/peitho/config";
 import { ACTION_DISPLAY, agreementBadge, consensusStdDev, guerrillaMove } from "@/lib/peitho/display";
 import { EASE_OUT } from "@/lib/ease";
 import { AnimatedNumber, fmtPct, fmtCents } from "@/components/AnimatedNumber";
-import { ModelBar } from "./ModelBar";
+import { ConsensusStrip } from "./ConsensusStrip";
 import { CompanyLogo } from "./CompanyLogo";
 
 export function MarketCard({ deal, onClick }: { deal: Deal; onClick?: () => void }) {
   const yes = deal.consensus;
   const no = 100 - yes;
   const badge = agreementBadge(consensusStdDev(deal.bets));
-  const byModel = new Map(deal.bets.map((b) => [b.model, b]));
-  const maxVote = deal.bets.length ? Math.max(...deal.bets.map((b) => b.price)) : -1;
-  const signals = deal.dossier.signals.length;
   const hot = deal.spread >= 25;
   const move = guerrillaMove(deal);
 
@@ -36,7 +32,7 @@ export function MarketCard({ deal, onClick }: { deal: Deal; onClick?: () => void
           </span>
         </div>
         <div className="mt-2 flex items-center gap-2 pl-12">
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ${ACTION_DISPLAY[deal.action].tone} ${ACTION_DISPLAY[deal.action].ring} ${ACTION_DISPLAY[deal.action].text}`}>
             {ACTION_DISPLAY[deal.action].label}
           </span>
           {hot && (
@@ -95,43 +91,7 @@ export function MarketCard({ deal, onClick }: { deal: Deal; onClick?: () => void
             AI Consensus
           </span>
         </div>
-        <div className="space-y-1">
-          {ALL_MODELS.map((m) => {
-            const bet = byModel.get(m);
-            return (
-              <ModelBar
-                key={m}
-                model={m}
-                price={bet ? bet.price : null}
-                isMax={!!bet && bet.price === maxVote}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* footer: honest stats + Yes/No */}
-      <div className="flex items-center gap-4 border-t border-border px-4 py-2.5">
-        <span className="text-[11px] text-muted-foreground">
-          <span className="font-semibold tabular-nums text-foreground">{deal.bets.length}</span>/4 priced
-        </span>
-        <span className="text-[11px] text-muted-foreground">
-          <span className="font-semibold tabular-nums text-foreground">{signals}</span> signals
-        </span>
-        <div className="ml-auto flex gap-2">
-          <button
-            className="rounded-lg bg-primary/15 px-3 py-1 text-xs font-bold text-primary transition-colors hover:bg-primary/25"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Yes
-          </button>
-          <button
-            className="rounded-lg bg-destructive/15 px-3 py-1 text-xs font-bold text-destructive transition-colors hover:bg-destructive/25"
-            onClick={(e) => e.stopPropagation()}
-          >
-            No
-          </button>
-        </div>
+        <ConsensusStrip bets={deal.bets} consensus={deal.consensus} />
       </div>
     </div>
   );

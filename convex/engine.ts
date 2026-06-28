@@ -9,7 +9,6 @@ import { z } from "zod";
 import { ALL_MODELS, MODEL_LENSES } from "../lib/peitho/config";
 import { buildSystemPrompt, buildUserPrompt } from "../lib/peitho/prompt";
 import { getSeller, DEFAULT_SELLER_ID } from "../lib/peitho/sellers";
-import { enrichDossier } from "../lib/peitho/orangeslice";
 import { FRESH_SIGNALS } from "../lib/peitho/signals";
 import type { Deal, ModelId } from "../lib/peitho/types";
 
@@ -129,32 +128,12 @@ export const detectSignal = action({
     const deal = await ctx.runQuery(api.deals.getDeal, { dealId, sellerId });
     if (!deal) throw new Error(`detectSignal: no deal "${dealId}"`);
 
-    let detected: { source: string; claim: string }[] = [];
-
-    // REAL detection: re-enrich via Orange Slice, diff against the stored dossier.
-    if (deal.domain) {
-      try {
-        const fresh = await enrichDossier({ domain: deal.domain, deep: true });
-        const have = new Set(deal.dossier.signals.map((s) => s.claim));
-        detected = fresh.dossier.signals
-          .filter((s) => !have.has(s.claim))
-          .slice(0, 2)
-          .map((s) => ({ source: s.source, claim: s.claim }));
-        if (detected.length) {
-          console.log(`[detectSignal] OS detected ${detected.length} new signal(s) for ${deal.domain}`);
-        }
-      } catch (e) {
-        console.warn(`[detectSignal] OS re-enrich failed:`, (e as Error)?.message ?? e);
-      }
-    }
-
-    // Fallback so the demo can't stutter: a curated fresh signal not yet present.
-    if (detected.length === 0) {
-      const used = new Set(deal.dossier.signals.map((s) => s.claim));
-      const next = FRESH_SIGNALS.find((s) => !used.has(s.claim));
-      if (next) detected = [{ source: next.source, claim: next.claim }];
-      console.log(`[detectSignal] no new OS signal — using curated fallback`);
-    }
+    // Seeded detection — Orange Slice live credits are exhausted, so detection
+    // appends a strong, believable buying signal we control: deterministic and
+    // stage-safe. The panel still re-prices for real on the new evidence.
+    const used = new Set(deal.dossier.signals.map((s) => s.claim));
+    const next = FRESH_SIGNALS.find((s) => !used.has(s.claim));
+    const detected = next ? [{ source: next.source, claim: next.claim }] : [];
 
     for (const s of detected) {
       await ctx.runMutation(api.deals.addSignal, { dealId, signal: s });

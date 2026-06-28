@@ -5,10 +5,10 @@ import { motion } from "motion/react";
 import { useAction, useMutation } from "convex/react";
 import { Users, BarChart2, Activity } from "lucide-react";
 import { EASE_OUT } from "@/lib/ease";
-import { AnimatedNumber, fmtPct, fmtCents, fmtSpread } from "@/components/AnimatedNumber";
+import { AnimatedNumber, fmtPct } from "@/components/AnimatedNumber";
 import { api } from "@/convex/_generated/api";
 import type { Deal } from "@/lib/peitho/types";
-import { HERO_DEAL_ID } from "@/lib/peitho/config";
+import { ALL_MODELS, HERO_DEAL_ID } from "@/lib/peitho/config";
 import { CompanyLogo } from "./CompanyLogo";
 import { DetectSignal } from "./DetectSignal";
 import {
@@ -19,7 +19,17 @@ import {
   guerrillaMove,
   modelDisplay,
 } from "@/lib/peitho/display";
-import { ModelAvatar } from "@/lib/peitho/modelIcons";
+import { ModelGlyph } from "@/lib/peitho/modelIcons";
+import { OddsChart } from "./OddsChart";
+
+// A short settle trajectory from a 50 baseline out to each final price — reads as
+// the panel forming its read as the bets land (same shape OddsChart expects).
+function settle(price: number): number[] {
+  const n = 6;
+  return Array.from({ length: n }, (_, k) =>
+    Math.round(50 + (price - 50) * (k / (n - 1))),
+  );
+}
 
 export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => void }) {
   const priceDeal = useAction(api.engine.priceDeal);
@@ -34,6 +44,11 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
   const isHero = deal.id === HERO_DEAL_ID;
   const live = deal.status === "pending" || deal.status === "resolving";
   const move = guerrillaMove(deal);
+
+  const byModel = new Map(deal.bets.map((b) => [b.model, b]));
+  // While the panel is live, models that haven't priced yet get a skeleton slot.
+  const pending = live || running;
+  const chartSeries = deal.bets.map((b) => ({ model: b.model, points: settle(b.price) }));
 
   async function run() {
     setRunning(true);
@@ -87,7 +102,7 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
         <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* left: consensus price + action */}
           <div>
-            <div className="mb-2 flex h-10 overflow-hidden rounded-xl text-sm font-bold">
+            <div className="mb-3 flex h-10 overflow-hidden rounded-xl text-sm font-bold">
               <motion.div
                 className="flex items-center justify-center gap-1 overflow-hidden bg-[#10b981] text-white"
                 initial={{ width: "50%" }}
@@ -102,26 +117,38 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
                 <AnimatedNumber value={no} format={fmtPct} />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg bg-muted p-3 text-center">
-                <p className="text-lg font-bold tabular-nums text-[#10b981]">
-                  <AnimatedNumber value={yes} format={fmtCents} />
+            {/* The spread is the product's whole thesis — give it the one box. */}
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/40 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Model spread
                 </p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground">Consensus Yes</p>
+                <p className="mt-0.5 text-[13px] leading-snug text-foreground/75">
+                  {deal.spread <= 20
+                    ? "Panel agrees — a tight, confident read."
+                    : "Panel splits — the disagreement is the signal."}
+                </p>
               </div>
-              <div className="rounded-lg bg-muted p-3 text-center">
-                <p className="text-lg font-bold tabular-nums text-[#FB2B37]">
-                  <AnimatedNumber value={no} format={fmtCents} />
-                </p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground">Consensus No</p>
-              </div>
-              <div className="rounded-lg bg-muted p-3 text-center">
-                <p className="text-lg font-bold tabular-nums text-foreground">
-                  <AnimatedNumber value={deal.spread} format={fmtSpread} />
-                </p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground">Model Spread</p>
+              <div className="flex shrink-0 items-baseline gap-1">
+                <span className="font-heading text-3xl font-bold tabular-nums text-foreground">
+                  ±{deal.spread}
+                </span>
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {deal.spread <= 20 ? "tight" : "wide"}
+                </span>
               </div>
             </div>
+
+            {/* Signature visual: four model lines diverging to their prices —
+                the gap between them IS the spread named above. */}
+            {deal.bets.length > 0 && (
+              <div className="mt-3 rounded-xl border border-border/60 bg-muted/30 p-4">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  How the panel landed
+                </p>
+                <OddsChart series={chartSeries} consensus={yes} />
+              </div>
+            )}
 
             {/* the seller action — every market ends in "do this" */}
             {move ? (
@@ -172,13 +199,18 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
               AI model votes
             </p>
             <div className="space-y-2.5">
-              {deal.bets.map((b) => {
+              {ALL_MODELS.map((m) => {
+                const b = byModel.get(m);
+                if (!b) {
+                  // Still thinking — show a skeleton only while the panel is live.
+                  return pending ? <SkeletonVote key={m} model={m} /> : null;
+                }
                 const { color, label } = modelDisplay(b.model);
                 return (
                   <div key={b.model} className="rounded-lg bg-muted px-3 py-2.5">
                     <div className="mb-1.5 flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color }}>
-                        <ModelAvatar model={b.model} size={16} />
+                        <ModelGlyph model={b.model} size={16} />
                         {label}
                       </span>
                       <div className="flex items-center gap-2">
@@ -225,6 +257,35 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
               })}
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Placeholder for a model that hasn't posted its bet yet — identity stays sharp
+// (so you see who's still out), the data placeholders pulse.
+function SkeletonVote({ model }: { model: string }) {
+  const { color, label } = modelDisplay(model);
+  return (
+    <div className="rounded-lg bg-muted px-3 py-2.5">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color }}>
+          <ModelGlyph model={model} size={16} />
+          {label}
+        </span>
+        <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+          <span className="h-1.5 w-1.5 animate-ping rounded-full" style={{ backgroundColor: color }} />
+          weighing in…
+        </span>
+      </div>
+      <div className="animate-pulse space-y-2">
+        <div className="h-2 w-full rounded-md bg-muted-foreground/15" />
+        <div className="h-2.5 w-full rounded bg-muted-foreground/10" />
+        <div className="h-2.5 w-3/4 rounded bg-muted-foreground/10" />
+        <div className="flex gap-1 pt-0.5">
+          <div className="h-4 w-24 rounded bg-muted-foreground/10" />
+          <div className="h-4 w-20 rounded bg-muted-foreground/10" />
         </div>
       </div>
     </div>

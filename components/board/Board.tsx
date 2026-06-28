@@ -3,20 +3,19 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex/react";
-import { Search, Zap } from "lucide-react";
+import { LayoutGrid, Rows3, Search, Zap } from "lucide-react";
 import { Logomark } from "./Logomark";
 import { Wordmark } from "./Wordmark";
 import { SellerSwitcher } from "./SellerSwitcher";
 import { api } from "@/convex/_generated/api";
-import { ALL_MODELS, MODEL_LENSES, PRODUCT } from "@/lib/peitho/config";
-import { modelDisplay } from "@/lib/peitho/display";
+import { ALL_MODELS, PRODUCT } from "@/lib/peitho/config";
 import type { Deal, DealAction } from "@/lib/peitho/types";
 import { MarketCard } from "./MarketCard";
+import { MarketTable } from "./MarketTable";
 import { FeaturedMarket } from "./FeaturedMarket";
 import { OddsHero } from "./OddsHero";
 import { useActiveSeller } from "./SellerContext";
-import { ModelAvatar, ModelGlyph } from "@/lib/peitho/modelIcons";
-import { AnimatedNumber, fmtPct } from "@/components/AnimatedNumber";
+import { ModelGlyph } from "@/lib/peitho/modelIcons";
 
 const CATEGORIES: { key: "all" | DealAction; label: string }[] = [
   { key: "all", label: "All" },
@@ -33,6 +32,7 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
   const deals = useQuery(api.deals.listDeals, { sellerId });
   const [category, setCategory] = useState<"all" | DealAction>("all");
   const [sort, setSort] = useState<SortKey>("volume");
+  const [view, setView] = useState<"grid" | "table">("grid");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const all = deals ?? [];
@@ -44,13 +44,6 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
   });
 
   const selected = selectedId ? all.find((d) => d.id === selectedId) ?? null : null;
-
-  // Per-model average confidence across the board, for the status strip.
-  const modelAvg = (model: string) => {
-    const bets = all.flatMap((d) => d.bets).filter((b) => b.model === model);
-    if (!bets.length) return null;
-    return Math.round((bets.reduce((s, b) => s + b.confidence, 0) / bets.length) * 100);
-  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -107,11 +100,9 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
               <span className="hidden text-xs text-muted-foreground sm:inline">
                 4 AI models trading
               </span>
-              <div className="flex -space-x-1.5">
+              <div className="flex items-center gap-2">
                 {ALL_MODELS.map((m) => (
-                  <div key={m} className="rounded-full ring-2 ring-background">
-                    <ModelAvatar model={m} size={20} />
-                  </div>
+                  <ModelGlyph key={m} model={m} size={20} />
                 ))}
               </div>
             </div>
@@ -123,39 +114,8 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
       <main className="mx-auto max-w-[1440px] px-6 py-6">
 
         {/* Animated hero: companies orbit with their odds */}
-        <OddsHero deals={all} />
-
-        {/* AI model status strip */}
-        <div className="mb-6 flex gap-3 overflow-x-auto pb-1">
-          {ALL_MODELS.map((m) => {
-            const { color, label } = modelDisplay(m);
-            const conf = modelAvg(m);
-            return (
-              <div
-                key={m}
-                className="flex shrink-0 items-center gap-2.5 rounded-xl border border-border bg-card px-4 py-2.5"
-              >
-                <ModelGlyph model={m} size={20} />
-                <span className="text-sm font-semibold text-foreground">{label}</span>
-                <span className="hidden text-[11px] text-muted-foreground sm:inline">
-                  {conf !== null ? (
-                    <>
-                      avg <AnimatedNumber value={conf} format={fmtPct} /> conf
-                    </>
-                  ) : (
-                    MODEL_LENSES[m as keyof typeof MODEL_LENSES]?.lens
-                  )}
-                </span>
-                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
-                  Live
-                </span>
-                <span
-                  className="h-2 w-2 animate-pulse rounded-full"
-                  style={{ backgroundColor: color }}
-                />
-              </div>
-            );
-          })}
+        <div className="mb-6">
+          <OddsHero deals={all} />
         </div>
 
         {/* Featured (click-to-expand) — springy bouncy-accordion open/close */}
@@ -176,27 +136,58 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
 
         {/* Grid header */}
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-base font-bold text-foreground">
-            <Zap size={15} className="text-primary" />
-            All markets
-            <span className="text-sm font-normal text-muted-foreground">({filtered.length})</span>
-          </h2>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Sort</span>
+          <div className="flex items-center gap-3">
+            <h2 className="flex items-center gap-2 text-base font-bold text-foreground">
+              <Zap size={15} className="text-primary" />
+              All markets
+              <span className="text-sm font-normal text-muted-foreground">({filtered.length})</span>
+            </h2>
+            {/* View toggle: card grid ↔ dense table */}
             <div className="flex gap-1 rounded-full border border-border bg-card p-0.5">
-              {SORTS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSort(s)}
-                  className={`rounded-full px-3 py-1 font-semibold capitalize transition-colors ${
-                    sort === s
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
+              <button
+                onClick={() => setView("grid")}
+                aria-label="Grid view"
+                title="Grid view"
+                className={`flex items-center justify-center rounded-full p-1.5 transition-colors ${
+                  view === "grid"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <LayoutGrid size={14} />
+              </button>
+              <button
+                onClick={() => setView("table")}
+                aria-label="Table view"
+                title="Table view"
+                className={`flex items-center justify-center rounded-full p-1.5 transition-colors ${
+                  view === "table"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Rows3 size={14} />
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Sort</span>
+              <div className="flex gap-1 rounded-full border border-border bg-card p-0.5">
+                {SORTS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSort(s)}
+                    className={`rounded-full px-3 py-1 font-semibold capitalize transition-colors ${
+                      sort === s
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -207,9 +198,23 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
             <span className="h-2 w-2 animate-ping rounded-full bg-muted-foreground" />
             <span className="ml-3">connecting to the board…</span>
           </div>
+        ) : view === "table" ? (
+          <MarketTable
+            deals={shown}
+            selectedId={selectedId}
+            onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {shown.map((d: Deal) => (
+            {shown.slice(0, 2).map((d: Deal) => (
+              <MarketCard
+                key={d.id}
+                deal={d}
+                onClick={() => setSelectedId((id) => (id === d.id ? null : d.id))}
+              />
+            ))}
+            <OddsHero deals={all} variant="card" />
+            {shown.slice(2).map((d: Deal) => (
               <MarketCard
                 key={d.id}
                 deal={d}

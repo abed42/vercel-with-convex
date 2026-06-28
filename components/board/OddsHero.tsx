@@ -1,60 +1,118 @@
 "use client";
 
-import { motion } from "motion/react";
 import type { Deal } from "@/lib/peitho/types";
-import { CompanyLogo } from "./CompanyLogo";
+import { TIER_DISPLAY } from "@/lib/peitho/display";
 
-// A decorative hero: the companies orbit along a big circle whose center sits
-// below the card, so only the top arc shows — a slow, continuous ring of logos
-// (with their odds) drifting over the title, like the World Cup odds card.
-const ITEMS = 24; // ring density (cycled from the available companies)
-const RADIUS = 560; // px
-const CENTER_Y = 580; // px below the card top → only the top cap is visible
+// A tiny speedometer arc, same as the top ticker.
+function MiniSpeedo({ value, accent }: { value: number; accent: string }) {
+  const w = 26;
+  const h = 15;
+  const r = 11;
+  const cx = w / 2;
+  const cy = h - 1.5;
+  const pt = (v: number) => {
+    const a = Math.PI * (1 - Math.max(0, Math.min(100, v)) / 100);
+    return { x: cx + r * Math.cos(a), y: cy - r * Math.sin(a) };
+  };
+  const arc = (from: number, to: number) => {
+    const a = pt(from);
+    const b = pt(to);
+    return `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} A ${r} ${r} 0 0 1 ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+  };
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-[15px] w-[26px] shrink-0">
+      <path d={arc(0, 100)} fill="none" stroke="currentColor" className="text-muted-foreground/30" strokeWidth={2.5} strokeLinecap="round" />
+      <path d={arc(0, value)} fill="none" stroke={accent} strokeWidth={2.5} strokeLinecap="round" />
+    </svg>
+  );
+}
 
-export function OddsHero({ deals }: { deals: Deal[] }) {
+// Companies orbit a circle whose center sits below the card, so only the top arc
+// shows. Each company is pinned to the TOP-CENTER of an equal-size layer that's
+// rotated by its angle; a single CSS keyframe spins the whole stack. Because
+// every layer shares the same center and the placement is a pure rigid rotation,
+// the orbit can't drift (the old translate-in-rotated-frame approach did).
+const CFG = {
+  banner: { height: 208, radius: 620, centerY: 650, logo: 56, items: 24, dur: 90, titlePos: "bottom-5 left-6", titleSize: "text-4xl sm:text-5xl" },
+  card: { height: 300, radius: 270, centerY: 320, logo: 42, items: 18, dur: 80, titlePos: "bottom-4 left-4", titleSize: "text-2xl" },
+} as const;
+
+export function OddsHero({
+  deals,
+  variant = "banner",
+}: {
+  deals: Deal[];
+  variant?: "banner" | "card";
+}) {
   if (deals.length === 0) return null;
-  const ring = Array.from({ length: ITEMS }, (_, i) => deals[i % deals.length]);
+  const c = CFG[variant];
+  const ring = Array.from({ length: c.items }, (_, i) => deals[i % deals.length]);
+  const anim = `orbit_${variant}`;
+  const size = c.radius * 2;
 
   return (
-    <div className="relative mb-6 h-[280px] overflow-hidden rounded-2xl border border-border bg-card">
-      {/* orbiting ring of companies */}
-      <motion.div
-        className="absolute left-1/2 h-0 w-0"
-        style={{ top: CENTER_Y }}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 70, ease: "linear", repeat: Infinity }}
+    <div
+      className="relative h-full overflow-hidden rounded-2xl border border-border bg-card"
+      style={{ minHeight: c.height }}
+    >
+      <style>{`@keyframes ${anim}{to{transform:rotate(360deg)}} .${anim}{animation:${anim} ${c.dur}s linear infinite}`}</style>
+
+      {/* spin stage: a square centered on the orbit center, below the card */}
+      <div
+        className={anim}
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: c.centerY,
+          width: size,
+          height: size,
+          marginLeft: -c.radius,
+          marginTop: -c.radius,
+          transformOrigin: "center",
+        }}
       >
         {ring.map((d, i) => {
-          const angle = (i / ITEMS) * 360;
+          const angle = (i / c.items) * 360;
+          const accent = TIER_DISPLAY[d.tier].accent;
           return (
-            <div
-              key={i}
-              className="absolute left-0 top-0"
-              style={{
-                transform: `rotate(${angle}deg) translateY(-${RADIUS}px) translate(-50%, -50%)`,
-              }}
-            >
-              <div className="flex flex-col items-center">
-                <CompanyLogo
-                  logo={d.logo}
-                  initials={d.initials}
-                  className="h-11 w-11 rounded-xl shadow-lg ring-1 ring-black/20"
-                />
-                <span className="mt-1 text-xs font-semibold text-muted-foreground">
-                  {d.consensus}%
-                </span>
+            // a full-size layer rotated by the company's angle; logo pinned to top-center
+            <div key={i} className="absolute inset-0" style={{ transform: `rotate(${angle}deg)` }}>
+              <div className="absolute left-1/2 top-0 flex -translate-x-1/2 flex-col items-center">
+                {d.logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={d.logo}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="rounded-2xl object-contain drop-shadow-lg"
+                    style={{ height: c.logo, width: c.logo }}
+                  />
+                ) : (
+                  <div
+                    className="flex items-center justify-center rounded-2xl bg-muted text-base font-bold text-foreground"
+                    style={{ height: c.logo, width: c.logo }}
+                  >
+                    {d.initials}
+                  </div>
+                )}
+                <div className="mt-3 flex items-center gap-1">
+                  <MiniSpeedo value={d.consensus} accent={accent} />
+                  <span className="text-xs font-bold tabular-nums" style={{ color: accent }}>
+                    {d.consensus}%
+                  </span>
+                </div>
               </div>
             </div>
           );
         })}
-      </motion.div>
+      </div>
 
-      {/* legibility wash under the title */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent" />
-
-      {/* title */}
-      <div className="absolute bottom-6 left-7 z-10">
-        <h2 className="font-heading text-4xl font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+      {/* title — drop-shadow keeps it legible over the orbiting logos */}
+      <div className={`absolute z-10 ${c.titlePos}`}>
+        <h2
+          className={`font-heading font-extrabold leading-[1.05] tracking-tight text-foreground ${c.titleSize}`}
+          style={{ filter: "drop-shadow(0 2px 10px rgba(0,0,0,1)) drop-shadow(0 4px 24px rgba(0,0,0,0.95))" }}
+        >
           Pipeline
           <br />
           Odds &amp; Predictions
