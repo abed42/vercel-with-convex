@@ -10,6 +10,7 @@ import { ALL_MODELS, MODEL_LENSES } from "../lib/peitho/config";
 import { buildSystemPrompt, buildUserPrompt } from "../lib/peitho/prompt";
 import { getSeller, DEFAULT_SELLER_ID } from "../lib/peitho/sellers";
 import { FRESH_SIGNALS } from "../lib/peitho/signals";
+import { enrichDossier } from "../lib/peitho/orangeslice";
 import type { Deal, ModelId } from "../lib/peitho/types";
 
 // Strict structured output — the model is forced to this shape. No prose parsing.
@@ -144,5 +145,95 @@ export const detectSignal = action({
       sellerId,
     });
     return { detected, deal: priced };
+  },
+});
+
+// Model-generated enrichment — the fallback when Orange Slice credits are out.
+// The model knows public companies; the gateway always works; Clearbit gives a
+// real logo with no auth. Produces the same EnrichedCompany shape.
+const genDossierSchema = z.object({
+  name: z.string().describe("official company name"),
+  summary: z.string().describe("one-line description"),
+  signals: z
+    .array(z.object({ source: z.string(), claim: z.string() }))
+    .describe("6 concrete signals across firmographics, funding, hiring, tech, news"),
+});
+
+async function modelEnrich(query: string): Promise<{
+  name: string;
+  initials: string;
+  domain: string;
+  logo?: string;
+  dossier: { summary: string; signals: { source: string; claim: string }[] };
+}> {
+  const { object } = await generateObject({
+    model: gateway("google/gemini-3.5-flash"),
+    schema: genDossierSchema,
+    system:
+      "You are a B2B sales-intelligence enrichment engine. Given a company, assemble a realistic dossier as if pulled from LinkedIn, Crunchbase, BuiltWith, and news. Use real public facts when you know the company; plausible specifics otherwise. Signals must be concrete and varied — firmographics (employees, HQ), funding (round + amount + date), hiring (specific eng roles), tech stack, and one recent news event. Source each as linkedin / crunchbase / builtwith / news.",
+    prompt: `Company: ${query}\nReturn the official name, a one-line summary, and 6 specific sourced signals.`,
+    maxRetries: 2,
+  });
+  const name = object.name || query;
+  // Domain from what the user typed (clean), not the model's verbose name.
+  const domain = query.includes(".")
+    ? query.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim()
+    : `${query.toLowerCase().replace(/[^a-z0-9]+/g, "")}.com`;
+  const initials =
+    name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "??";
+  return {
+    name,
+    initials,
+    domain,
+    logo: `https://logo.clearbit.com/${domain}`,
+    dossier: { summary: object.summary, signals: object.signals },
+  };
+}
+
+/**
+ * Build a market on demand from a search query (company name or domain).
+ * Enriches via Orange Slice (falls back to model-generated enrichment when OS
+ * credits are out), creates the deal, and prices it live from the active
+ * seller's perspective. Returns the dealId to route to its market page.
+ */
+export const buildMarket = action({
+  args: { query: v.string(), sellerId: v.optional(v.string()) },
+  handler: async (
+    ctx,
+    { query, sellerId },
+  ): Promise<{ dealId: string | null; name?: string }> => {
+    let enriched;
+    try {
+      enriched = await enrichDossier({ domain: query.trim(), deep: true });
+    } catch (e) {
+      console.warn(`[buildMarket] OS enrich failed (${(e as Error)?.message ?? e}) — model-enriching`);
+      try {
+        enriched = await modelEnrich(query.trim());
+      } catch (e2) {
+        console.warn(`[buildMarket] model enrich failed:`, (e2 as Error)?.message ?? e2);
+        return { dealId: null };
+      }
+    }
+    // Clean dealId from what the user typed: "Notion" → notion, "stripe.com" → stripe.
+    const slug = query
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/\..*$/, "")
+      .replace(/[^a-z0-9]+/g, "")
+      .slice(0, 24);
+    const dealId = slug || enriched.domain.split(".")[0].replace(/[^a-z0-9]/gi, "") || "market";
+    await ctx.runMutation(api.deals.createDeal, {
+      dealId,
+      name: enriched.name,
+      initials: enriched.initials,
+      logo: enriched.logo,
+      domain: enriched.domain,
+      dossier: enriched.dossier,
+      status: "cached",
+    });
+    await ctx.runMutation(api.deals.clearBets, { dealId, sellerId });
+    await ctx.runAction(api.engine.priceDeal, { dealId, sellerId });
+    return { dealId, name: enriched.name };
   },
 });

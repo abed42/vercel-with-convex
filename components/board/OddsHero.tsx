@@ -1,7 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import type { Deal } from "@/lib/peitho/types";
 import { TIER_DISPLAY } from "@/lib/peitho/display";
+
+// A single orbiting logo. Falls back to the company initials if the image is
+// missing OR fails to load — so a dead logo URL never shows a broken-image icon.
+function OrbitLogo({ deal, size }: { deal: Deal; size: number }) {
+  const [failed, setFailed] = useState(false);
+  if (deal.logo && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={deal.logo}
+        alt=""
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        className="rounded-2xl object-contain drop-shadow-lg"
+        style={{ height: size, width: size }}
+      />
+    );
+  }
+  return (
+    <div
+      className="flex items-center justify-center rounded-2xl bg-muted text-base font-bold text-foreground"
+      style={{ height: size, width: size }}
+    >
+      {deal.initials}
+    </div>
+  );
+}
 
 // A tiny speedometer arc, same as the top ticker.
 function MiniSpeedo({ value, accent }: { value: number; accent: string }) {
@@ -44,16 +72,19 @@ export function OddsHero({
   deals: Deal[];
   variant?: "banner" | "card";
 }) {
-  if (deals.length === 0) return null;
+  // Drop dead markets from the orbit — a company sitting at 0% odds reads as a
+  // broken/empty slot, so it shouldn't spin in the hero.
+  const live = deals.filter((d) => d.consensus > 0);
+  if (live.length === 0) return null;
   const c = CFG[variant];
-  const ring = Array.from({ length: c.items }, (_, i) => deals[i % deals.length]);
+  const ring = Array.from({ length: c.items }, (_, i) => live[i % live.length]);
   const anim = `orbit_${variant}`;
   const size = c.radius * 2;
 
   return (
     <div
       className="relative h-full overflow-hidden rounded-2xl border border-border bg-card"
-      style={{ minHeight: c.height }}
+      style={{ minHeight: variant === "banner" ? c.height : undefined }}
     >
       <style>{`@keyframes ${anim}{to{transform:rotate(360deg)}} .${anim}{animation:${anim} ${c.dur}s linear infinite}`}</style>
 
@@ -78,23 +109,7 @@ export function OddsHero({
             // a full-size layer rotated by the company's angle; logo pinned to top-center
             <div key={i} className="absolute inset-0" style={{ transform: `rotate(${angle}deg)` }}>
               <div className="absolute left-1/2 top-0 flex -translate-x-1/2 flex-col items-center">
-                {d.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={d.logo}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="rounded-2xl object-contain drop-shadow-lg"
-                    style={{ height: c.logo, width: c.logo }}
-                  />
-                ) : (
-                  <div
-                    className="flex items-center justify-center rounded-2xl bg-muted text-base font-bold text-foreground"
-                    style={{ height: c.logo, width: c.logo }}
-                  >
-                    {d.initials}
-                  </div>
-                )}
+                <OrbitLogo deal={d} size={c.logo} />
                 <div className="mt-3 flex items-center gap-1">
                   <MiniSpeedo value={d.consensus} accent={accent} />
                   <span className="text-xs font-bold tabular-nums" style={{ color: accent }}>

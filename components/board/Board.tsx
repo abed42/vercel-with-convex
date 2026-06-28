@@ -7,11 +7,14 @@ import { LayoutGrid, Rows3, Search, Zap } from "lucide-react";
 import { Logomark } from "./Logomark";
 import { Wordmark } from "./Wordmark";
 import { SellerSwitcher } from "./SellerSwitcher";
+import { MarketSearch } from "./MarketSearch";
 import { api } from "@/convex/_generated/api";
 import { ALL_MODELS, PRODUCT } from "@/lib/peitho/config";
 import type { Deal, DealAction } from "@/lib/peitho/types";
 import { MarketCard } from "./MarketCard";
+import { MarketCardSkeleton } from "./MarketCardSkeleton";
 import { MarketTable } from "./MarketTable";
+import { EASE_OUT } from "@/lib/ease";
 import { FeaturedMarket } from "./FeaturedMarket";
 import { OddsHero } from "./OddsHero";
 import { useActiveSeller } from "./SellerContext";
@@ -55,6 +58,10 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
             <Wordmark className="text-xl" />
             <span className="text-xl font-light text-muted-foreground">/</span>
             <SellerSwitcher />
+          </div>
+
+          <div className="mx-4 hidden flex-1 justify-center lg:flex">
+            <MarketSearch />
           </div>
 
           <nav className="ml-auto flex items-center gap-1">
@@ -192,37 +199,64 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
           </div>
         </div>
 
-        {/* Market grid — uniform, like the reference */}
-        {deals === undefined ? (
-          <div className="flex items-center justify-center py-24 text-muted-foreground">
-            <span className="h-2 w-2 animate-ping rounded-full bg-muted-foreground" />
-            <span className="ml-3">connecting to the board…</span>
-          </div>
-        ) : view === "table" ? (
-          <MarketTable
-            deals={shown}
-            selectedId={selectedId}
-            onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))}
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {shown.slice(0, 2).map((d: Deal) => (
-              <MarketCard
-                key={d.id}
-                deal={d}
-                onClick={() => setSelectedId((id) => (id === d.id ? null : d.id))}
-              />
-            ))}
-            <OddsHero deals={all} variant="card" />
-            {shown.slice(2).map((d: Deal) => (
-              <MarketCard
-                key={d.id}
-                deal={d}
-                onClick={() => setSelectedId((id) => (id === d.id ? null : d.id))}
-              />
-            ))}
-          </div>
-        )}
+        {/* Market grid — uniform, like the reference.
+            Skeleton placeholders reserve the layout, then cross-fade to the
+            real markets once the board query resolves (aria-busy for SRs). */}
+        <div aria-busy={deals === undefined} aria-live="polite">
+          <AnimatePresence mode="wait" initial={false}>
+            {deals === undefined ? (
+              <motion.div
+                key="skeleton"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: EASE_OUT }}
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              >
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <MarketCardSkeleton key={i} />
+                ))}
+              </motion.div>
+            ) : view === "table" ? (
+              <motion.div
+                key="table"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4, ease: EASE_OUT }}
+              >
+                <MarketTable
+                  deals={shown}
+                  selectedId={selectedId}
+                  onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="grid"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4, ease: EASE_OUT }}
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              >
+                {shown.slice(0, 6).map((d: Deal) => (
+                  <MarketCard
+                    key={d.id}
+                    deal={d}
+                    onClick={() => setSelectedId((id) => (id === d.id ? null : d.id))}
+                  />
+                ))}
+                <OddsHero deals={all} variant="card" />
+                {shown.slice(6).map((d: Deal) => (
+                  <MarketCard
+                    key={d.id}
+                    deal={d}
+                    onClick={() => setSelectedId((id) => (id === d.id ? null : d.id))}
+                  />
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {deals !== undefined && shown.length === 0 && (
           <div className="py-20 text-center text-muted-foreground">

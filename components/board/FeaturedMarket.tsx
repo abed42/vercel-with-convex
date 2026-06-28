@@ -20,16 +20,7 @@ import {
   modelDisplay,
 } from "@/lib/peitho/display";
 import { ModelGlyph } from "@/lib/peitho/modelIcons";
-import { OddsChart } from "./OddsChart";
-
-// A short settle trajectory from a 50 baseline out to each final price — reads as
-// the panel forming its read as the bets land (same shape OddsChart expects).
-function settle(price: number): number[] {
-  const n = 6;
-  return Array.from({ length: n }, (_, k) =>
-    Math.round(50 + (price - 50) * (k / (n - 1))),
-  );
-}
+import { PanelAreaChart } from "./PanelAreaChart";
 
 export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => void }) {
   const priceDeal = useAction(api.engine.priceDeal);
@@ -48,7 +39,6 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
   const byModel = new Map(deal.bets.map((b) => [b.model, b]));
   // While the panel is live, models that haven't priced yet get a skeleton slot.
   const pending = live || running;
-  const chartSeries = deal.bets.map((b) => ({ model: b.model, points: settle(b.price) }));
 
   async function run() {
     setRunning(true);
@@ -146,7 +136,7 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   How the panel landed
                 </p>
-                <OddsChart series={chartSeries} consensus={yes} />
+                <PanelAreaChart bets={deal.bets} />
               </div>
             )}
 

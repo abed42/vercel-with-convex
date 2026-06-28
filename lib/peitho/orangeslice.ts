@@ -21,6 +21,9 @@ function fmtAmount(n?: number | null): string {
   return `$${Math.round(n / 1e3)}K`;
 }
 
+const cleanDomain = (d: string) =>
+  d.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim();
+
 export type EnrichedCompany = {
   name: string;
   initials: string;
@@ -35,18 +38,23 @@ export type EnrichedCompany = {
  * maps each fact to an attributed Signal (source = where it came from).
  */
 export async function enrichDossier(input: {
-  domain: string;
-  deep?: boolean; // also pull hiring (jobs) + tech stack — richer fit evidence
+  domain: string; // a domain OR a company name/slug ("Notion", "stripe.com")
+  deep?: boolean; // also pull hiring (jobs) + tech stack + news — richer evidence
 }): Promise<EnrichedCompany> {
+  // Enrich by domain when it looks like one, otherwise by LinkedIn slug — the
+  // slug path returns the right company even when the website field is odd.
+  const isDomain = input.domain.includes(".");
+  const enrichArg = isDomain
+    ? { domain: input.domain, extended: true }
+    : { shorthand: input.domain.toLowerCase().replace(/[^a-z0-9]+/g, ""), extended: true };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r: any = await services.company.linkedin.enrich({
-    domain: input.domain,
-    extended: true,
-  });
+  const r: any = await services.company.linkedin.enrich(enrichArg);
   if (!r || !r.name) {
     throw new Error(`Orange Slice: no company found for "${input.domain}"`);
   }
 
+  // The domain we use for deep lookups + store on the deal.
+  const resolvedDomain = cleanDomain(r.website ? String(r.website) : input.domain);
   const name: string = r.name;
   const signals: Signal[] = [];
 
@@ -118,9 +126,9 @@ export async function enrichDossier(input: {
             })
             .catch((): any => null)
         : Promise.resolve(null),
-      services.builtWith.lookupDomain({ domain: input.domain }).catch((): any => null),
+      services.builtWith.lookupDomain({ domain: resolvedDomain }).catch((): any => null),
       services.predictLeads
-        .companyNewsEvents({ company_id_or_domain: input.domain, limit: 12 })
+        .companyNewsEvents({ company_id_or_domain: resolvedDomain, limit: 12 })
         .catch((): any => null),
     ]);
     /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -192,7 +200,7 @@ export async function enrichDossier(input: {
   return {
     name,
     initials: initialsFrom(name),
-    domain: r.website ? String(r.website).replace(/^https?:\/\//, "") : input.domain,
+    domain: resolvedDomain,
     logo: typeof r.logo === "string" && r.logo ? r.logo : undefined,
     dossier: { summary, signals },
   };

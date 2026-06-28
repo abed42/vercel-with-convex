@@ -237,6 +237,23 @@ export const clearBets = mutation({
   },
 });
 
+// Remove a single deal + its bets (e.g. clean up a test-built market).
+export const removeDeal = mutation({
+  args: { dealId: v.string() },
+  handler: async (ctx, { dealId }) => {
+    const d = await ctx.db
+      .query("deals")
+      .withIndex("by_dealId", (q) => q.eq("dealId", dealId))
+      .unique();
+    if (d) await ctx.db.delete(d._id);
+    const bets = await ctx.db
+      .query("bets")
+      .withIndex("by_dealId", (q) => q.eq("dealId", dealId))
+      .collect();
+    await Promise.all(bets.map((bt) => ctx.db.delete(bt._id)));
+  },
+});
+
 // Wipe the whole board (deals + bets) except the internal probe — for a clean
 // re-seed when switching the prospect set.
 export const clearBoard = mutation({
