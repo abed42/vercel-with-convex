@@ -20,7 +20,7 @@ export default async function ServerPage() {
             width={48}
             height={48}
           />
-          <div className="w-px h-12 bg-slate-300 dark:bg-slate-600"></div>
+          <div className="w-px h-12 bg-border"></div>
           <Image
             src="/nextjs-icon-light-background.svg"
             alt="Next.js Logo"
@@ -36,16 +36,16 @@ export default async function ServerPage() {
             className="hidden dark:block"
           />
         </div>
-        <h1 className="text-4xl font-bold text-slate-800 dark:text-slate-200">
+        <h1 className="font-heading text-4xl font-bold text-foreground">
           Convex + Vercel
         </h1>
       </div>
-      <div className="flex flex-col gap-4 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-6 rounded-xl shadow-md">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">
+      <div className="flex flex-col gap-4 bg-card border border-border p-6 rounded-xl shadow-md">
+        <h2 className="text-xl font-bold text-foreground">
           Non-reactive server-loaded data
         </h2>
-        <code className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-300 dark:border-slate-600 overflow-x-auto">
-          <pre className="text-sm text-slate-700 dark:text-slate-300">
+        <code className="bg-muted p-4 rounded-lg border border-border overflow-x-auto">
+          <pre className="text-sm text-muted-foreground">
             {JSON.stringify(data, null, 2)}
           </pre>
         </code>

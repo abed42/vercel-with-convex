@@ -8,7 +8,11 @@
  * @module
  */
 
+import type * as deals from "../deals.js";
+import type * as engine from "../engine.js";
 import type * as myFunctions from "../myFunctions.js";
+import type * as probe from "../probe.js";
+import type * as seed from "../seed.js";
 
 import type {
   ApiFromModules,
@@ -17,7 +21,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  deals: typeof deals;
+  engine: typeof engine;
   myFunctions: typeof myFunctions;
+  probe: typeof probe;
+  seed: typeof seed;
 }>;
 
 /**

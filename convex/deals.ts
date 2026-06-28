@@ -1,0 +1,186 @@
+import { v } from "convex/values";
+import { query, mutation } from "./_generated/server";
+import { assembleDeal } from "../lib/peitho/derive";
+import type { Deal, ModelBet } from "../lib/peitho/types";
+
+const dossierValidator = v.object({
+  summary: v.string(),
+  signals: v.array(
+    v.object({
+      source: v.string(),
+      claim: v.string(),
+      foundBy: v.optional(v.string()),
+    }),
+  ),
+});
+
+const statusValidator = v.union(
+  v.literal("cached"),
+  v.literal("pending"),
+  v.literal("resolving"),
+  v.literal("settled"),
+);
+
+// Map a stored bet row to the ModelBet contract shape.
+function toModelBet(row: {
+  model: string;
+  price: number;
+  confidence: number;
+  rationale: string;
+  signalsUsed: string[];
+  toolCalls?: string[];
+}): ModelBet {
+  return {
+    model: row.model,
+    price: row.price,
+    confidence: row.confidence,
+    rationale: row.rationale,
+    signalsUsed: row.signalsUsed,
+    toolCalls: row.toolCalls,
+  };
+}
+
+// Reactive read: every Deal, fully derived from its bets. Writing a single bet
+// row re-fires this subscription — this is how the board animates with NO poll.
+export const listDeals = query({
+  args: {},
+  handler: async (ctx): Promise<Deal[]> => {
+    const deals = await ctx.db.query("deals").collect();
+    const assembled = await Promise.all(
+      deals.map(async (d) => {
+        const betRows = await ctx.db
+          .query("bets")
+          .withIndex("by_dealId", (q) => q.eq("dealId", d.dealId))
+          .collect();
+        return assembleDeal({
+          id: d.dealId,
+          name: d.name,
+          initials: d.initials,
+          logo: d.logo,
+          dossier: d.dossier,
+          bets: betRows.map(toModelBet),
+          status: d.status,
+        });
+      }),
+    );
+    // Tier ascending (1 first), then consensus descending within a tier.
+    return assembled.sort((a, b) => a.tier - b.tier || b.consensus - a.consensus);
+  },
+});
+
+export const getDeal = query({
+  args: { dealId: v.string() },
+  handler: async (ctx, { dealId }): Promise<Deal | null> => {
+    const d = await ctx.db
+      .query("deals")
+      .withIndex("by_dealId", (q) => q.eq("dealId", dealId))
+      .unique();
+    if (!d) return null;
+    const betRows = await ctx.db
+      .query("bets")
+      .withIndex("by_dealId", (q) => q.eq("dealId", dealId))
+      .collect();
+    return assembleDeal({
+      id: d.dealId,
+      name: d.name,
+      initials: d.initials,
+      logo: d.logo,
+      dossier: d.dossier,
+      bets: betRows.map(toModelBet),
+      status: d.status,
+    });
+  },
+});
+
+// Upsert a deal's identity + evidence (idempotent on dealId).
+export const createDeal = mutation({
+  args: {
+    dealId: v.string(),
+    name: v.string(),
+    initials: v.string(),
+    logo: v.optional(v.string()),
+    dossier: dossierValidator,
+    status: v.optional(statusValidator),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("deals")
+      .withIndex("by_dealId", (q) => q.eq("dealId", args.dealId))
+      .unique();
+    const patch = {
+      dealId: args.dealId,
+      name: args.name,
+      initials: args.initials,
+      logo: args.logo,
+      dossier: args.dossier,
+      status: args.status ?? "cached",
+    };
+    if (existing) {
+      await ctx.db.patch(existing._id, patch);
+    } else {
+      await ctx.db.insert("deals", patch);
+    }
+  },
+});
+
+export const setStatus = mutation({
+  args: { dealId: v.string(), status: statusValidator },
+  handler: async (ctx, { dealId, status }) => {
+    const d = await ctx.db
+      .query("deals")
+      .withIndex("by_dealId", (q) => q.eq("dealId", dealId))
+      .unique();
+    if (d) await ctx.db.patch(d._id, { status });
+  },
+});
+
+// Insert or replace a single model's bet, keyed by (dealId, model) — the cache
+// key. One row per model means the four parallel calls never race on an array.
+export const upsertBet = mutation({
+  args: {
+    dealId: v.string(),
+    model: v.string(),
+    price: v.number(),
+    confidence: v.number(),
+    rationale: v.string(),
+    signalsUsed: v.array(v.string()),
+    toolCalls: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("bets")
+      .withIndex("by_deal_model", (q) =>
+        q.eq("dealId", args.dealId).eq("model", args.model),
+      )
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, args);
+    } else {
+      await ctx.db.insert("bets", args);
+    }
+  },
+});
+
+// Cache probe used by the engine: which models already have a bet for this deal.
+export const cachedModels = query({
+  args: { dealId: v.string() },
+  handler: async (ctx, { dealId }): Promise<string[]> => {
+    const rows = await ctx.db
+      .query("bets")
+      .withIndex("by_dealId", (q) => q.eq("dealId", dealId))
+      .collect();
+    return rows.map((r) => r.model);
+  },
+});
+
+// Dev/stage helper: wipe a deal's bets so it can be re-priced live.
+export const clearBets = mutation({
+  args: { dealId: v.string() },
+  handler: async (ctx, { dealId }) => {
+    const rows = await ctx.db
+      .query("bets")
+      .withIndex("by_dealId", (q) => q.eq("dealId", dealId))
+      .collect();
+    await Promise.all(rows.map((r) => ctx.db.delete(r._id)));
+  },
+});
