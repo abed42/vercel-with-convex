@@ -181,6 +181,18 @@ export const setName = mutation({
   },
 });
 
+// Set a deal's logo URL (e.g. swap a dead Clearbit URL for a working favicon).
+export const setLogo = mutation({
+  args: { dealId: v.string(), logo: v.string() },
+  handler: async (ctx, { dealId, logo }) => {
+    const d = await ctx.db
+      .query("deals")
+      .withIndex("by_dealId", (q) => q.eq("dealId", dealId))
+      .unique();
+    if (d) await ctx.db.patch(d._id, { logo });
+  },
+});
+
 // Tag a deal's industry without touching its dossier or bets.
 export const setIndustry = mutation({
   args: { dealId: v.string(), industry: v.string() },

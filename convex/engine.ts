@@ -199,7 +199,7 @@ async function modelEnrich(query: string): Promise<{
     name,
     initials,
     domain,
-    logo: `https://logo.clearbit.com/${domain}`,
+    logo: `https://icons.duckduckgo.com/ip3/${domain}.ico`,
     dossier: { summary: object.summary, signals: object.signals },
   };
 }

@@ -70,17 +70,17 @@ function RelatedMarkets({ currentId }: { currentId: string }) {
   if (!deals) return null;
   const related = deals.filter((d) => d.id !== currentId).slice(0, 7);
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="mb-3 text-sm font-semibold text-foreground">Related markets</div>
-      <div className="space-y-1">
+    <SectionCard>
+      <SectionTitle>Related markets</SectionTitle>
+      <div className="space-y-0.5">
         {related.map((d) => (
           <button
             key={d.id}
             onClick={() => router.push(`/market/${d.id}`)}
-            className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition hover:bg-muted"
+            className="group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition hover:bg-muted"
           >
             <CompanyLogo logo={d.logo} initials={d.initials} className="h-7 w-7 rounded-md text-[10px]" />
-            <span className="min-w-0 flex-1 truncate text-sm text-foreground">{d.name}</span>
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground transition-colors group-hover:text-foreground">{d.name}</span>
             <span
               className="text-sm font-bold tabular-nums"
               style={{ color: TIER_DISPLAY[d.tier].accent }}
@@ -90,7 +90,7 @@ function RelatedMarkets({ currentId }: { currentId: string }) {
           </button>
         ))}
       </div>
-    </div>
+    </SectionCard>
   );
 }
 
@@ -139,11 +139,20 @@ function MarketDetail({ deal }: { deal: Deal }) {
               <h1 className="font-heading text-2xl font-bold leading-tight text-foreground">
                 Will {deal.name} convert?
               </h1>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {tier.label} · priced for{" "}
-                <span className="font-semibold text-foreground">{seller.name}</span> ·{" "}
-                {deal.dossier.signals.length} signals
-              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span
+                  className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ring-border"
+                  style={{ color: tier.accent }}
+                >
+                  {tier.label}
+                </span>
+                <span className="text-muted-foreground/50">·</span>
+                <span>
+                  priced for <span className="font-semibold text-foreground">{seller.name}</span>
+                </span>
+                <span className="text-muted-foreground/50">·</span>
+                <span>{deal.dossier.signals.length} signals</span>
+              </div>
             </div>
           </div>
 
@@ -292,7 +301,7 @@ function MarketDetail({ deal }: { deal: Deal }) {
                 </button>
                 <DetectSignal dealId={deal.id} />
               </div>
-            </div>
+            </SectionCard>
             <RelatedMarkets currentId={deal.id} />
           </div>
         </aside>
