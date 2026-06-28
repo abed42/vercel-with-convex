@@ -169,6 +169,18 @@ export const addSignal = mutation({
   },
 });
 
+// Rename a deal (e.g. clean a verbose model-generated legal name).
+export const setName = mutation({
+  args: { dealId: v.string(), name: v.string() },
+  handler: async (ctx, { dealId, name }) => {
+    const d = await ctx.db
+      .query("deals")
+      .withIndex("by_dealId", (q) => q.eq("dealId", dealId))
+      .unique();
+    if (d) await ctx.db.patch(d._id, { name });
+  },
+});
+
 // Tag a deal's industry without touching its dossier or bets.
 export const setIndustry = mutation({
   args: { dealId: v.string(), industry: v.string() },

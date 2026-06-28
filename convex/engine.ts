@@ -159,6 +159,20 @@ const genDossierSchema = z.object({
     .describe("6 concrete signals across firmographics, funding, hiring, tech, news"),
 });
 
+// Strip verbose legal suffixes from a company name ("Ramp Business Corporation"
+// → "Ramp", "Notion Labs, Inc." → "Notion").
+function cleanName(name: string): string {
+  let n = String(name).split(",")[0].trim();
+  const SUF =
+    /\s+(Inc|LLC|L\.L\.C|PBC|Corp|Corporation|Ltd|Co|Company|Technologies|Technology|Labs|Software|Business|Group|Holdings|Platform)\.?$/i;
+  for (let i = 0; i < 4; i++) {
+    const m = n.replace(SUF, "").trim();
+    if (m === n) break;
+    n = m;
+  }
+  return n || name;
+}
+
 async function modelEnrich(query: string): Promise<{
   name: string;
   initials: string;
@@ -174,7 +188,7 @@ async function modelEnrich(query: string): Promise<{
     prompt: `Company: ${query}\nReturn the official name, a one-line summary, and 6 specific sourced signals.`,
     maxRetries: 2,
   });
-  const name = object.name || query;
+  const name = cleanName(object.name || query);
   // Domain from what the user typed (clean), not the model's verbose name.
   const domain = query.includes(".")
     ? query.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim()

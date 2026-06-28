@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -26,6 +26,28 @@ const settle = (price: number): number[] => {
 
 function Sk({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-muted ${className}`} />;
+}
+
+// Softly-elevated panel — a top-down gradient + a faint inner highlight and a
+// deep, diffuse shadow give the flat cards a little physical depth.
+function SectionCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl border border-border/80 bg-gradient-to-b from-card to-card/40 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04),0_12px_28px_-16px_rgba(0,0,0,0.7)] ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Section header with a small accent bar — gives the stacked cards a shared rhythm.
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <span className="h-3.5 w-[3px] rounded-full bg-primary/70" />
+      <span className="text-[13px] font-semibold tracking-tight text-foreground">{children}</span>
+    </div>
+  );
 }
 
 function SkeletonVote() {
@@ -128,20 +150,20 @@ function MarketDetail({ deal }: { deal: Deal }) {
           {/* big Yes/No */}
           {ready ? (
             <div>
-              <div className="flex h-12 overflow-hidden rounded-xl text-base font-bold">
+              <div className="flex h-12 overflow-hidden rounded-2xl text-base font-bold shadow-[0_8px_24px_-12px_rgba(0,0,0,0.7)] ring-1 ring-black/20">
                 <div
-                  className="flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-all duration-500"
+                  className="flex items-center justify-center gap-2 bg-gradient-to-r from-primary/90 to-primary text-primary-foreground transition-all duration-500"
                   style={{ width: `${yes}%` }}
                 >
-                  <span>Yes</span>
+                  <span className="opacity-90">Yes</span>
                   <span className="tabular-nums">{yes}%</span>
                 </div>
-                <div className="flex flex-1 items-center justify-center gap-2 bg-destructive text-white">
-                  <span>No</span>
+                <div className="flex flex-1 items-center justify-center gap-2 bg-gradient-to-r from-destructive to-destructive/90 text-white">
+                  <span className="opacity-90">No</span>
                   <span className="tabular-nums">{no}%</span>
                 </div>
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 consensus {yes}% · spread ±{deal.spread} ({lo}–{hi}) · {tier.blurb}
               </p>
             </div>
@@ -156,10 +178,8 @@ function MarketDetail({ deal }: { deal: Deal }) {
           )}
 
           {/* chart */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-              How the panel landed
-            </div>
+          <SectionCard>
+            <SectionTitle>How the panel landed</SectionTitle>
             {ready ? (
               <OddsChart
                 series={deal.bets.map((b) => ({ model: b.model, points: settle(b.price) }))}
@@ -168,13 +188,11 @@ function MarketDetail({ deal }: { deal: Deal }) {
             ) : (
               <Sk className="h-[150px] w-full" />
             )}
-          </div>
+          </SectionCard>
 
           {/* market context = evidence */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-2 text-sm font-semibold text-foreground">
-              Market context — the evidence
-            </div>
+          <SectionCard>
+            <SectionTitle>Market context — the evidence</SectionTitle>
             <p className="mb-3 text-sm leading-relaxed text-muted-foreground">
               {deal.dossier.summary}
             </p>
@@ -182,27 +200,29 @@ function MarketDetail({ deal }: { deal: Deal }) {
               {deal.dossier.signals.map((s, i) => (
                 <span
                   key={i}
-                  className="rounded-md border border-border bg-muted px-2 py-1 text-[11px] text-foreground"
+                  className="rounded-lg border border-border/70 bg-muted/60 px-2.5 py-1 text-[11px] text-foreground transition-colors hover:border-border hover:bg-muted"
                 >
-                  <span className="mr-1 text-muted-foreground">{s.source}:</span>
+                  <span className="mr-1 font-medium uppercase tracking-wide text-muted-foreground/80 text-[10px]">{s.source}</span>
                   {s.claim}
                 </span>
               ))}
             </div>
-          </div>
+          </SectionCard>
 
           {/* model votes */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 text-sm font-semibold text-foreground">
-              AI model votes — how each concluded
-            </div>
+          <SectionCard>
+            <SectionTitle>AI model votes — how each concluded</SectionTitle>
             <div className="space-y-3">
               {ALL_MODELS.map((m) => {
                 const b = byModel.get(m);
                 if (!b) return pricing ? <SkeletonVote key={m} /> : null;
                 const { color, label } = modelDisplay(b.model);
                 return (
-                  <div key={b.model} className="rounded-lg bg-muted px-3 py-2.5 animate-[betIn_400ms_ease-out]">
+                  <div
+                    key={b.model}
+                    className="rounded-xl border-l-2 bg-gradient-to-r from-muted to-muted/40 px-3.5 py-2.5 animate-[betIn_400ms_ease-out]"
+                    style={{ borderLeftColor: color }}
+                  >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold" style={{ color }}>
                         {label}
@@ -228,13 +248,13 @@ function MarketDetail({ deal }: { deal: Deal }) {
                 );
               })}
             </div>
-          </div>
+          </SectionCard>
         </div>
 
         {/* SIDEBAR — the action panel + related */}
         <aside className="space-y-4">
           <div className="sticky top-[120px] space-y-4">
-            <div className="rounded-xl border border-border bg-card p-4">
+            <SectionCard>
               {ready ? (
                 <>
                   <div
