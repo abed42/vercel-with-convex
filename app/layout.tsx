@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Oddyssey — go-to-market intelligence",
+  title: "Oddyssey — Go-To-Market Intelligence",
   description:
     "A consensus prediction market for B2B purchase intent. Four frontier models price the same evidence; the spread is the signal.",
 };

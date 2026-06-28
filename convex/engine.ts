@@ -149,8 +149,9 @@ export const detectSignal = action({
 });
 
 // Model-generated enrichment — the fallback when Orange Slice credits are out.
-// The model knows public companies; the gateway always works; Clearbit gives a
-// real logo with no auth. Produces the same EnrichedCompany shape.
+// The model knows public companies; the gateway always works; logo.dev gives a
+// real company logo by domain (Orange Slice is the preferred source when its
+// credits are available). Produces the same EnrichedCompany shape.
 const genDossierSchema = z.object({
   name: z.string().describe("official company name"),
   summary: z.string().describe("one-line description"),
@@ -199,7 +200,7 @@ async function modelEnrich(query: string): Promise<{
     name,
     initials,
     domain,
-    logo: `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    logo: `https://img.logo.dev/${domain}?token=pk_X-1ZO13GSgeOoUrIuJ6GMQ&size=128&format=png`,
     dossier: { summary: object.summary, signals: object.signals },
   };
 }
