@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex/react";
 import { LayoutGrid, Rows3, Search, Zap } from "lucide-react";
@@ -36,6 +38,7 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
   const [category, setCategory] = useState<"all" | DealAction>("all");
   const [sort, setSort] = useState<SortKey>("volume");
   const [view, setView] = useState<"grid" | "table">("grid");
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const all = deals ?? [];
@@ -54,8 +57,14 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-[60px] max-w-[1440px] items-center gap-6 px-6">
           <div className="flex shrink-0 items-center gap-2.5">
-            <Logomark className="h-9 w-auto text-foreground" />
-            <Wordmark className="text-xl" />
+            <Link
+              href="/"
+              aria-label="Oddyssey home"
+              className="flex items-center gap-2.5 rounded-lg transition-opacity hover:opacity-80"
+            >
+              <Logomark className="h-9 w-auto text-foreground" />
+              <Wordmark className="text-xl" />
+            </Link>
             <span className="text-xl font-light text-muted-foreground">/</span>
             <SellerSwitcher />
           </div>
@@ -227,7 +236,7 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
                 <MarketTable
                   deals={shown}
                   selectedId={selectedId}
-                  onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))}
+                  onSelect={(id) => router.push(`/market/${id}`)}
                 />
               </motion.div>
             ) : (
@@ -242,7 +251,7 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
                   <MarketCard
                     key={d.id}
                     deal={d}
-                    onClick={() => setSelectedId((id) => (id === d.id ? null : d.id))}
+                    onClick={() => router.push(`/market/${d.id}`)}
                   />
                 ))}
                 <OddsHero deals={all} variant="card" />
@@ -250,7 +259,7 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
                   <MarketCard
                     key={d.id}
                     deal={d}
-                    onClick={() => setSelectedId((id) => (id === d.id ? null : d.id))}
+                    onClick={() => router.push(`/market/${d.id}`)}
                   />
                 ))}
               </motion.div>
