@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
-import { Search, Zap, Globe, Activity } from "lucide-react";
+import { Search, Zap } from "lucide-react";
+import { Logomark } from "./Logomark";
 import { api } from "@/convex/_generated/api";
 import { ALL_MODELS, MODEL_LENSES, PRODUCT } from "@/lib/peitho/config";
 import { modelDisplay } from "@/lib/peitho/display";
@@ -24,16 +25,11 @@ const SORTS: SortKey[] = ["volume", "trending", "newest"];
 export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
   const deals = useQuery(api.deals.listDeals);
   const [category, setCategory] = useState<"all" | DealAction>("all");
-  const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("volume");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const all = deals ?? [];
-  const filtered = all.filter((d) => {
-    const matchCat = category === "all" || d.action === category;
-    const matchSearch = d.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const filtered = all.filter((d) => category === "all" || d.action === category);
   const shown = [...filtered].sort((a, b) => {
     if (sort === "trending") return b.spread - a.spread;
     if (sort === "newest") return 0;
@@ -41,9 +37,6 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
   });
 
   const selected = selectedId ? all.find((d) => d.id === selectedId) ?? null : null;
-  const avgConsensus = all.length
-    ? Math.round(all.reduce((s, d) => s + d.consensus, 0) / all.length)
-    : 0;
 
   // Per-model average confidence across the board, for the status strip.
   const modelAvg = (model: string) => {
@@ -57,27 +50,11 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
       {/* ── Topbar ─────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-[60px] max-w-[1440px] items-center gap-6 px-6">
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70">
-              <Activity size={14} className="text-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold tracking-tight text-foreground">
+          <div className="flex shrink-0 items-center gap-2.5">
+            <Logomark className="h-9 w-auto text-foreground" />
+            <span className="text-xl font-bold tracking-tight text-foreground">
               {PRODUCT.name}
             </span>
-          </div>
-
-          <div className="relative max-w-sm flex-1">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              type="text"
-              placeholder="Search markets…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9 w-full rounded-lg border border-border bg-card pl-8 pr-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-            />
           </div>
 
           <nav className="ml-auto flex items-center gap-1">
@@ -137,31 +114,6 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
 
       {/* ── Main ───────────────────────────────────────── */}
       <main className="mx-auto max-w-[1440px] px-6 py-6">
-        {/* Hero banner */}
-        <div className="mb-6 flex items-center justify-between rounded-2xl border border-border bg-gradient-to-r from-secondary/50 via-secondary/30 to-secondary/50 p-5">
-          <div>
-            <div className="mb-1 flex items-center gap-2">
-              <Globe size={14} className="text-primary" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                AI-consensus pipeline intelligence
-              </span>
-            </div>
-            <h1 className="font-heading text-2xl font-bold leading-tight text-foreground">
-              Four frontier models price every prospect
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Claude, GPT, Gemini &amp; Grok independently rate purchase intent on the
-              same evidence. Where they disagree is your edge.
-            </p>
-          </div>
-          <div className="hidden shrink-0 items-center gap-4 md:flex">
-            <Stat value={`${all.length}`} label="Live markets" />
-            <div className="h-10 w-px bg-muted" />
-            <Stat value={`${avgConsensus}%`} label="Avg consensus" />
-            <div className="h-10 w-px bg-muted" />
-            <Stat value="4" label="AI traders" />
-          </div>
-        </div>
 
         {/* AI model status strip */}
         <div className="mb-6 flex gap-3 overflow-x-auto pb-1">
@@ -244,7 +196,7 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
           <div className="py-20 text-center text-muted-foreground">
             <Search size={32} className="mx-auto mb-3 opacity-40" />
             <p className="font-semibold">No markets found</p>
-            <p className="mt-1 text-sm">Try a different search or category</p>
+            <p className="mt-1 text-sm">Try a different category</p>
           </div>
         )}
       </main>
@@ -252,10 +204,8 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
       {/* ── Footer ─────────────────────────────────────── */}
       <footer className="mt-12 border-t border-border px-6 py-8 text-xs text-muted-foreground">
         <div className="mx-auto flex max-w-[1440px] flex-col items-center justify-between gap-4 md:flex-row">
-          <div className="flex items-center gap-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded bg-gradient-to-br from-primary to-primary/70">
-              <Activity size={10} className="text-primary-foreground" />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <Logomark className="h-7 w-auto text-foreground" />
             <span className="font-semibold text-foreground">{PRODUCT.name}</span>
             <span>— {PRODUCT.tagline}</span>
           </div>
@@ -268,15 +218,6 @@ export function Board({ onColdOpen }: { onColdOpen?: () => void }) {
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="text-center">
-      <p className="text-xl font-bold tabular-nums text-foreground">{value}</p>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
     </div>
   );
 }

@@ -51,7 +51,7 @@ export const MODEL_LENSES: Record<
 export const ALL_MODELS: ModelId[] = ["claude", "gpt", "gemini", "grok"];
 
 // The one prospect priced LIVE on stage. Everything else is cached "looks real".
-export const HERO_DEAL_ID = "stripe";
+export const HERO_DEAL_ID = "lovable";
 
 // Hour-one architecture proof deal — isolated from the board.
 export const PROBE_DEAL_ID = "__probe__";

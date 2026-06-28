@@ -36,6 +36,7 @@ export type EnrichedCompany = {
  */
 export async function enrichDossier(input: {
   domain: string;
+  deep?: boolean; // also pull hiring (jobs) + tech stack — richer fit evidence
 }): Promise<EnrichedCompany> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r: any = await services.company.linkedin.enrich({
@@ -103,6 +104,54 @@ export async function enrichDossier(input: {
       source: "linkedin",
       claim: `${Number(r.follower_count).toLocaleString()} LinkedIn followers`,
     });
+  }
+
+  // ── deep: hiring (jobs) + tech stack — the real fit evidence ──────────────
+  if (input.deep && r.linkedin_company_id) {
+    const id = Number(r.linkedin_company_id);
+    const [jobsRes, techRes] = await Promise.all([
+      services.company.linkedin
+        .search({
+          sql: `SELECT title FROM linkedin_job WHERE linkedin_company_id = ${id} ORDER BY posted_date DESC NULLS LAST LIMIT 40`,
+        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .catch((): any => null),
+      services.builtWith
+        .lookupDomain({ domain: input.domain })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .catch((): any => null),
+    ]);
+
+    // hiring — engineering roles are the strongest "they're building" signal
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const titles: string[] = ((jobsRes?.rows as any[]) ?? [])
+      .map((j) => String(j?.title ?? "").trim())
+      .filter(Boolean);
+    const eng = titles.filter((t) =>
+      /engineer|developer|software|swe|full.?stack|backend|frontend|infra|platform/i.test(t),
+    );
+    if (eng.length) {
+      const sample = [...new Set(eng)].slice(0, 3).join(", ");
+      signals.push({
+        source: "linkedin",
+        claim: `hiring ${eng.length} engineering role${eng.length > 1 ? "s" : ""} (e.g. ${sample})`,
+      });
+    } else if (titles.length) {
+      signals.push({ source: "linkedin", claim: `${titles.length} open roles, none in engineering` });
+    }
+
+    // tech stack — flags exactly the backend/realtime pieces Convex replaces
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const techs: string[] = (((techRes as any)?.technologies as any[]) ?? [])
+      .map((t) => String(t?.name ?? t?.Name ?? t?.technology ?? "").trim())
+      .filter(Boolean);
+    if (techs.length) {
+      const RELEVANT =
+        /react|next\.?js|node|vue|svelte|angular|postgres|mysql|mongo|firebase|supabase|graphql|websocket|socket\.io|redis|typescript|vercel|netlify|aws|gcp|firestore/i;
+      const relevant = [...new Set(techs.filter((t) => RELEVANT.test(t)))].slice(0, 6);
+      const list = (relevant.length ? relevant : [...new Set(techs)].slice(0, 5)).join(", ");
+      signals.push({ source: "builtwith", claim: `tech stack: ${list}` });
+    }
   }
 
   const summary = (

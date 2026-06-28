@@ -13,6 +13,7 @@ import {
   actionLine,
   agreementBadge,
   consensusStdDev,
+  guerrillaMove,
   modelDisplay,
 } from "@/lib/peitho/display";
 import { ModelAvatar } from "@/lib/peitho/modelIcons";
@@ -29,6 +30,7 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
   const maxVote = deal.bets.length ? Math.max(...deal.bets.map((b) => b.price)) : -1;
   const isHero = deal.id === HERO_DEAL_ID;
   const live = deal.status === "pending" || deal.status === "resolving";
+  const move = guerrillaMove(deal);
 
   async function run() {
     setRunning(true);
@@ -111,12 +113,24 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
             </div>
 
             {/* the seller action — every market ends in "do this" */}
-            <div className={`mt-3 flex items-center gap-3 rounded-xl px-4 py-2.5 ring-1 ${action.tone} ${action.ring}`}>
-              <span className={`rounded-md px-2 py-1 text-xs font-bold uppercase tracking-wide ${action.text}`}>
-                {action.label}
-              </span>
-              <span className="text-sm text-foreground">{actionLine(deal)}</span>
-            </div>
+            {move ? (
+              <div className="mt-3 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                <span className="text-2xl leading-none">🦍</span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-amber-400">
+                    Guerrilla move needed
+                  </p>
+                  <p className="mt-0.5 text-sm text-foreground">{move}</p>
+                </div>
+              </div>
+            ) : (
+              <div className={`mt-3 flex items-center gap-3 rounded-xl px-4 py-2.5 ring-1 ${action.tone} ${action.ring}`}>
+                <span className={`rounded-md px-2 py-1 text-xs font-bold uppercase tracking-wide ${action.text}`}>
+                  {action.label}
+                </span>
+                <span className="text-sm text-foreground">{actionLine(deal)}</span>
+              </div>
+            )}
 
             {isHero && (
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">

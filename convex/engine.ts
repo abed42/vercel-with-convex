@@ -8,6 +8,7 @@ import { gateway } from "@ai-sdk/gateway";
 import { z } from "zod";
 import { ALL_MODELS, MODEL_LENSES } from "../lib/peitho/config";
 import { buildSystemPrompt, buildUserPrompt } from "../lib/peitho/prompt";
+import { getSeller, DEFAULT_SELLER_ID } from "../lib/peitho/sellers";
 import type { Deal, ModelId } from "../lib/peitho/types";
 
 // Strict structured output — the model is forced to this shape. No prose parsing.
@@ -42,10 +43,15 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
  * `force` is set. Any model that errors is dropped gracefully (e.g. Grok).
  */
 export const priceDeal = action({
-  args: { dealId: v.string(), force: v.optional(v.boolean()) },
-  handler: async (ctx, { dealId, force }): Promise<Deal> => {
+  args: {
+    dealId: v.string(),
+    force: v.optional(v.boolean()),
+    sellerId: v.optional(v.string()),
+  },
+  handler: async (ctx, { dealId, force, sellerId }): Promise<Deal> => {
     const deal = await ctx.runQuery(api.deals.getDeal, { dealId });
     if (!deal) throw new Error(`priceDeal: no deal "${dealId}"`);
+    const seller = getSeller(sellerId ?? DEFAULT_SELLER_ID);
 
     const cached = new Set(
       await ctx.runQuery(api.deals.cachedModels, { dealId }),
@@ -64,8 +70,8 @@ export const priceDeal = action({
           generateObject({
             model: gateway(MODEL_LENSES[model].gatewayModel),
             schema: betSchema,
-            system: buildSystemPrompt(model),
-            prompt: buildUserPrompt(deal.name, deal.dossier),
+            system: buildSystemPrompt(model, seller),
+            prompt: buildUserPrompt(deal.name, deal.dossier, seller),
             maxRetries: 2,
           }),
           PER_MODEL_TIMEOUT_MS,

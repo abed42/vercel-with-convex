@@ -212,3 +212,21 @@ export const clearBets = mutation({
     await Promise.all(rows.map((r) => ctx.db.delete(r._id)));
   },
 });
+
+// Wipe the whole board (deals + bets) except the internal probe — for a clean
+// re-seed when switching the prospect set.
+export const clearBoard = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const deals = await ctx.db.query("deals").collect();
+    const bets = await ctx.db.query("bets").collect();
+    await Promise.all([
+      ...deals
+        .filter((d) => d.dealId !== PROBE_DEAL_ID)
+        .map((d) => ctx.db.delete(d._id)),
+      ...bets
+        .filter((b) => b.dealId !== PROBE_DEAL_ID)
+        .map((b) => ctx.db.delete(b._id)),
+    ]);
+  },
+});

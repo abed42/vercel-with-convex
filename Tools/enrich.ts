@@ -27,7 +27,7 @@ if (!url) {
 const convex = new ConvexHttpClient(url);
 
 console.log(`\n▸ enriching ${domain} via Orange Slice…`);
-const { name, initials, dossier, logo, domain: resolved } = await enrichDossier({ domain });
+const { name, initials, dossier, logo, domain: resolved } = await enrichDossier({ domain, deep: true });
 console.log(`  ${name} (${resolved}) — ${dossier.signals.length} real signals${logo ? " · logo ✓" : ""}:`);
 for (const s of dossier.signals) console.log(`   · [${s.source}] ${s.claim}`);
 

@@ -118,3 +118,27 @@ export function agreementBadge(stdDev: number): { label: string; cls: string } {
     return { label: "Moderate", cls: "bg-amber-500/15 text-amber-300 ring-amber-500/30" };
   return { label: "Contested", cls: "bg-destructive/15 text-destructive ring-destructive/30" };
 }
+
+// ── Guerrilla moves ──────────────────────────────────────────────────────────
+// When the panel prices a prospect near-zero, the funnel won't save it — only a
+// bold, unscalable move will (the Cursor coffee-truck-outside-their-office play).
+// Below this consensus, we stop recommending "skip" and dare a guerrilla move.
+export const GUERRILLA_THRESHOLD = 5;
+
+const GUERRILLA_MOVES = [
+  "Fly someone out and show up at their office in person.",
+  "Park a branded coffee truck outside their HQ — the Cursor café move.",
+  "Hand-write a letter to the CEO and overnight it.",
+  "Send a custom gift to the decision-maker's desk.",
+  "Buy a booth at their next all-hands or industry event.",
+  "Rent a billboard on their morning commute.",
+  "Cater lunch for the whole team with a note attached.",
+  "Record a one-take Loom for the founder they can't ignore.",
+];
+
+/** A bold, deterministic guerrilla tactic for a near-zero prospect (else null). */
+export function guerrillaMove(deal: Deal): string | null {
+  if (deal.consensus >= GUERRILLA_THRESHOLD) return null;
+  const hash = [...deal.id].reduce((s, c) => s + c.charCodeAt(0), 0);
+  return GUERRILLA_MOVES[hash % GUERRILLA_MOVES.length];
+}

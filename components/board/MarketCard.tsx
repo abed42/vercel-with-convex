@@ -2,7 +2,7 @@
 
 import type { Deal } from "@/lib/peitho/types";
 import { ALL_MODELS } from "@/lib/peitho/config";
-import { ACTION_DISPLAY, agreementBadge, consensusStdDev } from "@/lib/peitho/display";
+import { ACTION_DISPLAY, agreementBadge, consensusStdDev, guerrillaMove } from "@/lib/peitho/display";
 import { ModelBar } from "./ModelBar";
 import { CompanyLogo } from "./CompanyLogo";
 
@@ -14,6 +14,7 @@ export function MarketCard({ deal, onClick }: { deal: Deal; onClick?: () => void
   const maxVote = deal.bets.length ? Math.max(...deal.bets.map((b) => b.price)) : -1;
   const signals = deal.dossier.signals.length;
   const hot = deal.spread >= 25;
+  const move = guerrillaMove(deal);
 
   return (
     <div
@@ -59,6 +60,21 @@ export function MarketCard({ deal, onClick }: { deal: Deal; onClick?: () => void
           <span className="text-[11px] font-semibold text-destructive">No {no}¢</span>
         </div>
       </div>
+
+      {/* near-zero odds: the funnel won't save it — call a guerrilla move */}
+      {move && (
+        <div className="px-4 pb-3">
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+            <span className="text-sm leading-none">🦍</span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400">
+                Guerrilla move needed
+              </p>
+              <p className="text-[11px] leading-snug text-foreground/90">{move}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI consensus — the four models as the bettors */}
       <div className="border-t border-border px-4 pb-3 pt-3">
