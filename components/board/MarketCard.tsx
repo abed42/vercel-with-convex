@@ -73,10 +73,10 @@ export function MarketCard({ deal, onClick }: { deal: Deal; onClick?: () => void
       {move && (
         <div className="px-4 pb-3">
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-            <span className="text-sm leading-none">🦍</span>
+            <span className="text-xl leading-none">🦍</span>
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400">
-                Guerrilla move needed
+                Gorilla move needed to increase odds
               </p>
               <p className="text-[11px] leading-snug text-foreground/90">{move}</p>
             </div>

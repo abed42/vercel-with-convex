@@ -143,10 +143,10 @@ export function FeaturedMarket({ deal, onClose }: { deal: Deal; onClose: () => v
             {/* the seller action — every market ends in "do this" */}
             {move ? (
               <div className="mt-3 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                <span className="text-2xl leading-none">🦍</span>
+                <span className="text-3xl leading-none">🦍</span>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-amber-400">
-                    Guerrilla move needed
+                    Gorilla move needed to increase odds
                   </p>
                   <p className="mt-0.5 text-sm text-foreground">{move}</p>
                 </div>

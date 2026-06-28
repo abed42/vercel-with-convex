@@ -72,8 +72,11 @@ export const listDeals = query({
         });
       }),
     );
-    // Tier ascending (1 first), then consensus descending within a tier.
-    return assembled.sort((a, b) => a.tier - b.tier || b.consensus - a.consensus);
+    // Only show markets actually priced for this seller (a deal with no bets for
+    // the active seller would otherwise render as a misleading "0% / 100% No").
+    return assembled
+      .filter((d) => d.bets.length > 0)
+      .sort((a, b) => a.tier - b.tier || b.consensus - a.consensus);
   },
 });
 
